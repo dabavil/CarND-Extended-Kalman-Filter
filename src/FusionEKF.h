@@ -37,19 +37,13 @@ private:
   // previous timestamp
   long previous_timestamp_;
 
-  ///* state vector
+  ///* state, noisce, state transition, currrent covariance vector
   VectorXd x_;
-
-  ///* process covariance matrix
   MatrixXd Q_;
-
-  ///* state transition matrix
   MatrixXd F_;
-
-  ///* state covariance matrix
   MatrixXd P_;
 
-  // tool object used to compute Jacobian and RMSE
+  // For Jacobian mtx
   Tools tools;
   MatrixXd R_laser_;
   MatrixXd R_radar_;

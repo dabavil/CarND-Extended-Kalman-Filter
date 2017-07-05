@@ -34,8 +34,7 @@ void KalmanFilter::Update(const VectorXd &z) {
   MatrixXd Ht = H_.transpose();
   MatrixXd S = H_ * P_ * Ht + R_;
   MatrixXd Si = S.inverse();
-  MatrixXd PHt = P_ * Ht;
-  MatrixXd K = PHt * Si;
+  MatrixXd K = P_ * Ht * Si;
 
   //new estimate
   x_ = x_ + (K * y);
@@ -51,10 +50,11 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
    * update the state by using Extended Kalman Filter equations
    */
 
-  // have initialize H_ with Hj jacobian before calling
   float rho = sqrt(x_(0)*x_(0) + x_(1)*x_(1));
   float phi = atan2(x_(1), x_(0));
   float rho_dot;
+
+  //handle super small rhos / special case
   if (fabs(rho) < 0.0001) {
     rho_dot = 0;
   } else {
@@ -63,12 +63,14 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
   VectorXd z_pred(3);
   z_pred << rho, phi, rho_dot;
   VectorXd y = z - z_pred;
-  y[1] = atan2(sin(y[1]), cos(y[1])); //normalize
+  
+  y[1] = atan2(sin(y[1]), cos(y[1])); //normalize the angle!!!
+
+  // H must be Jacobian at this stage!!
   MatrixXd Ht = H_.transpose();
   MatrixXd S = H_ * P_ * Ht + R_;
   MatrixXd Si = S.inverse();
-  MatrixXd PHt = P_ * Ht;
-  MatrixXd K = PHt * Si;
+  MatrixXd K = P_ * Ht * Si;
 
   //new estimate
   x_ = x_ + (K * y);
@@ -78,21 +80,21 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
 }
 
 VectorXd KalmanFilter::h(const VectorXd &x) {
-  // extract position and velocity
+  
   float px = x(0);
   float py = x(1);
   float vx = x(2);
   float vy = x(3);
 
-  // h(x')
+  // define the h function 
   float rho = sqrt(px*px + py*py);
-  float theta = atan(py/px);
-  theta = atan2(sin(theta),cos(theta));
+  float phi = atan(py/px);
+  phi = atan2(sin(phi),cos(phi)); //normalize the angle!!!
 
   float rho_dot = (px*vx + py*vy) / rho;
 
   VectorXd hx = VectorXd(3);
-  hx << rho, theta, rho_dot;
+  hx << rho, phi, rho_dot;
 
   return hx;
 }
