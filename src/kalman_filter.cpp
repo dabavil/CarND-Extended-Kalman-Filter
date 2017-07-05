@@ -1,98 +1,98 @@
 #include "kalman_filter.h"
+#include "tools.h"
+#include <stdlib.h>
 #include <iostream>
+#include <math.h>
 
-using Eigen::MatrixXd;
-using Eigen::VectorXd;
+using namespace std;
 
-KalmanFilter::KalmanFilter() {}
-
-KalmanFilter::~KalmanFilter() {}
-
-void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
-                        MatrixXd &H_in, MatrixXd &R_in, MatrixXd &Q_in) {
-  x_ = x_in; // object state
-  P_ = P_in; // object covariance matrix
-  F_ = F_in; // state transition matrix
-  H_ = H_in; // measurement matrix
-  R_ = R_in; // measurement covariance matrix
-  Q_ = Q_in; // process covariance matrix
+KalmanFilter::KalmanFilter() {
 }
 
-// The Kalman filter predict function. The same for linear and extended Kalman filter
+KalmanFilter::~KalmanFilter() {
+}
+
+void KalmanFilter::Init(VectorXd &x_in, MatrixXd &P_in, MatrixXd &F_in,
+    MatrixXd &H_in, MatrixXd &R_in, MatrixXd &Q_in) {
+  x_ = x_in;
+  P_ = P_in;
+  F_ = F_in;
+  H_ = H_in;
+  R_ = R_in;
+  Q_ = Q_in;
+}
+
 void KalmanFilter::Predict() {
-  x_ = F_ * x_ ; // There is no external motion, so, we do not have to add "+u"
+  x_ = F_ * x_;
   MatrixXd Ft = F_.transpose();
   P_ = F_ * P_ * Ft + Q_;
-
-  //std::cout<<"kalman_filter x_ prediction: "<<x_<<"\n";
 }
 
 void KalmanFilter::Update(const VectorXd &z) {
-  // Kalman filter update step. Equations from the lectures
-  VectorXd y = z - H_ * x_; // error calculation
-  KF(y);
+  VectorXd z_pred = H_ * x_;
+  VectorXd y = z - z_pred;
+  MatrixXd Ht = H_.transpose();
+  MatrixXd S = H_ * P_ * Ht + R_;
+  MatrixXd Si = S.inverse();
+  MatrixXd PHt = P_ * Ht;
+  MatrixXd K = PHt * Si;
+
+  //new estimate
+  x_ = x_ + (K * y);
+  long x_size = x_.size();
+
+  MatrixXd I = MatrixXd::Identity(x_size, x_size);
+  P_ = (I - K * H_) * P_;
 }
 
 void KalmanFilter::UpdateEKF(const VectorXd &z) {
   /**
-  TODO:
-    * update the state by using Extended Kalman Filter equations
-  */
-  // Recalculate x object state to rho, theta, rho_dot coordinates
-  double rho = sqrt(x_(0)*x_(0) + x_(1)*x_(1));
+   TODO:
+   * update the state by using Extended Kalman Filter equations
+   */
 
-  if(rho < 0.0001){
-    rho = 0.0001;
+  // have initialize H_ with Hj jacobian before calling
+  float rho = sqrt(x_(0)*x_(0) + x_(1)*x_(1));
+  float phi = atan2(x_(1), x_(0));
+  float rho_dot;
+  if (fabs(rho) < 0.0001) {
+    rho_dot = 0;
+  } else {
+    rho_dot = (x_(0)*x_(2) + x_(1)*x_(3))/rho;
   }
-
-
-  double theta = atan(x_(1) / x_(0));
-  double rho_dot = (x_(0)*x_(2) + x_(1)*x_(3)) / rho;
-   //if(fabs(rho_dot) < 0.0001){
-    //rho_dot = 0.0001;
-  //}
-
-  //float diff = z(1) - theta;
-  //if(diff>6.2)
-  //{
-  //  theta = theta + 6.283;
-  //}
-
-  theta = atan2(sin(theta), cos(theta));
-
-  std::cout<<"DEBUG\n<<rho: "<<rho<<"     theta: "<<theta<<"     rho_dot: "<<rho_dot<<"     x_(0): "<<x_(0)<<"     x_(1):"<<x_(1)<<"\n";
-
-  VectorXd h = VectorXd(3); // h(x_)
-  h << rho, theta, rho_dot;
-  VectorXd y = z - h;
-
-  std::cout<<"DEBUG\ny: "<<y<<"\nz: "<<z<<"\nh: "<<h<<"\n";
-  // Calculations are essentially the same to the Update function
-  KF(y);
-}
-
-// Universal update Kalman Filter step. Equations from the lectures
-void KalmanFilter::KF(const VectorXd &y){
+  VectorXd z_pred(3);
+  z_pred << rho, phi, rho_dot;
+  VectorXd y = z - z_pred;
+  y[1] = atan2(sin(y[1]), cos(y[1])); //normalize
   MatrixXd Ht = H_.transpose();
   MatrixXd S = H_ * P_ * Ht + R_;
   MatrixXd Si = S.inverse();
-  MatrixXd K =  P_ * Ht * Si;
-  // New state
-  
-  //std::cout<<"DEBUG\n<<y: "<<y<<"\n";
+  MatrixXd PHt = P_ * Ht;
+  MatrixXd K = PHt * Si;
 
-  std::cout<<"x_ pre radar update"<<x_<<"\n";
-  std::cout<<"DEBUG\n<<P_: "<<P_<<"\n";
-  std::cout<<"DEBUG\n<<Ht: "<<Ht<<"\n";
-  std::cout<<"DEBUG\n<<Si: "<<Si<<"\n";
-  std::cout<<"DEBUG\n<<K: "<<K<<"\n";
-  //std::cout<<"DEBUG\n<<y: "<<y<<"\n";
-
+  //new estimate
   x_ = x_ + (K * y);
-
-  std::cout<<"x_ post radar update"<<x_<<"\n";
-
-  int x_size = x_.size();
+  long x_size = x_.size();
   MatrixXd I = MatrixXd::Identity(x_size, x_size);
   P_ = (I - K * H_) * P_;
+}
+
+VectorXd KalmanFilter::h(const VectorXd &x) {
+  // extract position and velocity
+  float px = x(0);
+  float py = x(1);
+  float vx = x(2);
+  float vy = x(3);
+
+  // h(x')
+  float rho = sqrt(px*px + py*py);
+  float theta = atan(py/px);
+  theta = atan2(sin(theta),cos(theta));
+
+  float rho_dot = (px*vx + py*vy) / rho;
+
+  VectorXd hx = VectorXd(3);
+  hx << rho, theta, rho_dot;
+
+  return hx;
 }
