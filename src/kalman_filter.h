@@ -11,7 +11,7 @@ public:
   // state covariance matrix
   Eigen::MatrixXd P_;
 
-  // state transition matrix
+  // state transistion matrix
   Eigen::MatrixXd F_;
 
   // process covariance matrix
@@ -63,6 +63,12 @@ public:
    * @param z The measurement at k+1
    */
   void UpdateEKF(const Eigen::VectorXd &z);
+  
+  /**
+   * Universal update Kalman Filter step. Equations from the lectures
+   * @param y The error
+   */
+  void KF(const Eigen::VectorXd &y);
 
 };
 
