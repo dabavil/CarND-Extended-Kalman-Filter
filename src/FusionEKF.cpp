@@ -89,7 +89,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
     R_laser_ << 0.0225, 0,
         0, 0.0225;
 
-    // intial covariance matrix
+    // intial covariance matrix and state matrix
 
     ekf_.x_ = x_;
 
@@ -97,8 +97,8 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
 
     P_ << 1, 0, 0, 0,
         0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1;
+        0, 0, 1000, 0,
+        0, 0, 0, 1000;
 
     ekf_.P_ = P_;
 
@@ -178,7 +178,7 @@ void FusionEKF::ProcessMeasurement(const MeasurementPackage &measurement_pack) {
       ekf_.UpdateEKF(z);
     }
   } else {
-    // Lasers!!
+    // CAUTION Lasers!!:)
     VectorXd z = VectorXd(2);
     z << measurement_pack.raw_measurements_[0], measurement_pack.raw_measurements_[1];
     ekf_.Init(ekf_.x_, ekf_.P_, F_, H_laser_, R_laser_, Q_);

@@ -56,14 +56,14 @@ void KalmanFilter::UpdateEKF(const VectorXd &z) {
 
   //handle super small rhos / special case
   if (fabs(rho) < 0.0001) {
-    rho_dot = 0;
+    rho_dot = 0.0001;
   } else {
     rho_dot = (x_(0)*x_(2) + x_(1)*x_(3))/rho;
   }
   VectorXd z_pred(3);
   z_pred << rho, phi, rho_dot;
   VectorXd y = z - z_pred;
-  
+
   y[1] = atan2(sin(y[1]), cos(y[1])); //normalize the angle!!!
 
   // H must be Jacobian at this stage!!
